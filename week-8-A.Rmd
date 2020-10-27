@@ -15,7 +15,7 @@ library(tidyverse)
 
 week_8 <- trains %>% 
   mutate(att_chg = att_end - att_start) %>% 
-  select(att_chg, gender, party, treatment)
+  select(att_chg, gender, party, treatment, liberal)
   
 ```
 
@@ -29,12 +29,36 @@ Weeks 7, 8 and 9 are the core of the class. We have a question. We have some dat
 **Prompt:** Let's estimate and interpret three models. In each case, `att_chg` is the outcome variable, the thing we are trying to understand and explain. Use `stan_glm()` to create and print a model with `att_chg` (the dependent or outcome variable) as a function of the indicated independent (or predictor) variable. Do not use an intercept. In each case, write three sentences of interpretation, with a special focus on whether the model is predictive or causal. For causal models, indicate how you might estimate the causal effect.
 
 * `att_chg` as a function of `gender`
+```{r}
+fit_model <- stan_glm(data = week_8,
+                      family = gaussian(),
+                      att_chg ~ gender - 1,
+                      refresh = 0)
+
+# You need to have a independent variable that you can change. You cannot manipulate gender, and can merely observe it and predict its effect on attention change. Predictive because we weren't randomly assining gender.
+```
 
 
 * `att_chg` as a function of `liberal`
+```{r}
+fit_model_1 <- stan_glm(data = week_8,
+                      family = gaussian(),
+                      att_chg ~ liberal - 1,
+                      refresh = 0)
+```
 
 
 * `att_chg` as a function of `treatment`
+```{r}
+fit_model_2 <- stan_glm(data = week_8,
+                      family = gaussian(),
+                      att_chg ~ treatment - 1,
+                      refresh = 0)
+
+# This is a causal model because you can change and impact the independent variable.
+
+
+```
 
 
 
@@ -45,6 +69,26 @@ Weeks 7, 8 and 9 are the core of the class. We have a question. We have some dat
 **Prompt:** For the model with `att_chg` as a function of `treatment`, create posterior probability densities for the two important parameters. Write a paragraph interpreting the meaning of those posteriors. 
 
 
+```{r}
+fit_model_2 %>%
+  as_tibble() %>%
+  rename(Treated = treatmentTreated,
+         Control = treatmentControl) %>%
+  pivot_longer(cols = -sigma,
+               names_to = "treatment",
+               values_to = "attitude_change") %>%
+  select(- sigma) %>%
+  ggplot(aes(x = attitude_change, fill = treatment)) +
+  geom_density() 
+  #scale_y_continuous(labels = scales::percent_format()) 
+
+## Using y = afterstat works here (it would work for discrete values for geom_histogram + geom_density); after_stat(count/sum(count)) is usually used with histograms and density
+## do we use the afterstat and normalize on the geomdensity
+# the height of the geom_density are proportionate to the probabilities
+# Can rely on a histogram to plot the posterior probability distribution (density and probability are different things that are proportional)
+# a histogram has a finite number of bins; wheras a density plot has an infinite number of values on the x axis
+## Why and when do we use the scale_y_continuous?
+```
 
 
 ## Scene 3
@@ -52,4 +96,16 @@ Weeks 7, 8 and 9 are the core of the class. We have a question. We have some dat
 **Prompt:** Create a plot of the the posterior for the average treatment effect. Write a paragraph interpreting the plot.
 
 
+```{r}
+fit_model_2 %>%
+  as_tibble() %>%
+  rename(Treated = treatmentTreated,
+         Control = treatmentControl) %>%
+  mutate(ate = Treated - Control) %>%
+  ggplot(aes(x = ate)) +
+  geom_histogram(aes(y = after_stat(count/sum(count)), fill = after_stat(count)), 
+                 bins = 60) +
+  scale_fill_gradient(low="blue", high="red")
+
+```
 
